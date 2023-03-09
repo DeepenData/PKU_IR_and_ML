@@ -1,0 +1,23 @@
+stages:
+  # optimizer:
+  #   cmd: python optimizer_optuna.py
+  #   params:
+  #     - feature_engineering.removed_features # track specific param (from params.yaml)
+  #
+  #   plots:
+  #     - fig/panel_pacientes.svg:
+  #         cache: false
+
+  single_run:
+    cmd: python modelo_xg.py
+
+    deps:
+      - modelo_xg.py
+
+    params:
+      - feature_engineering.removed_features # track specific param (from params.yaml)
+      - train.seed # Confirma el Seed para tracking
+
+    metrics:
+      - metrics.json:
+          cache: false
