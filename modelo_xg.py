@@ -15,16 +15,18 @@ CLASIFICADOR: str = "HOMA" # params["train"]["clasificador"]  # Random state par
 
 # Crea un path para figuras
 import os
+
 if not os.path.isdir("fig"):
     os.mkdir("fig")
 
 # Loggins con DVC Live
 from dvclive import Live
+
 live = Live("metrics")
 
+import numpy as np
 # Importa el dataset 
 import pandas as pd
-import numpy as np
 
 dataset = pd.read_csv("data/multi_label.csv")
 # print(f"Datos en set: {dataset.shape}")  # LOGGIN
@@ -97,7 +99,7 @@ cv = StratifiedKFold(
     random_state=RANDOM_STATE_SEED
 )
 
-folds = [(train, test) for train, test in cv.split(X_train, y_train)]
+folds = list(cv.split(X_train, y_train))
 #folds = list(cv.split(X_train, y_train))
 
 # Parametros de XGBoost
@@ -141,7 +143,7 @@ for train, test in folds:
 
     # Sets de k-fold train, k-fold eval, y test-set
     sets = [dtrain, dval, dtest]
-    
+
     for i,ds in enumerate(results.keys()):
         y_preds              = model.predict(sets[i])
         labels               = sets[i].get_label()
@@ -151,98 +153,24 @@ for train, test in folds:
         results[ds]['thresholds'].append(thresholds)
         results[ds]['auc'].append(roc_auc_score(labels, y_preds))
 
-# %% --- 
-# FIGURA ROC
-if True:
-    kind = 'val'
+kind = 'val'
 
-    fpr_mean    = np.linspace(0, 1, 100)
-    interp_tprs = []
-    
-    for i in range(len(results[kind]['fpr'])):
-        fpr           = results[kind]['fpr'][i]
-        tpr           = results[kind]['tpr'][i]
-        interp_tpr    = np.interp(fpr_mean, fpr, tpr)
-        interp_tpr[0] = 0.0
-        interp_tprs.append(interp_tpr)
-    tpr_mean     = np.mean(interp_tprs, axis=0)
-    tpr_mean[-1] = 1.0
-    tpr_std      = 2*np.std(interp_tprs, axis=0)
-    tpr_upper    = np.clip(tpr_mean+tpr_std, 0, 1)
-    tpr_lower    = tpr_mean-tpr_std
-    auc          = np.mean(results[kind]['auc'])
+fpr_mean    = np.linspace(0, 1, 100)
+interp_tprs = []
 
-    # live.log(f"auc_{kind}",auc)
+for i in range(len(results[kind]['fpr'])):
+    fpr           = results[kind]['fpr'][i]
+    tpr           = results[kind]['tpr'][i]
+    interp_tpr    = np.interp(fpr_mean, fpr, tpr)
+    interp_tpr[0] = 0.0
+    interp_tprs.append(interp_tpr)
+tpr_mean     = np.mean(interp_tprs, axis=0)
+tpr_mean[-1] = 1.0
+tpr_std      = 2*np.std(interp_tprs, axis=0)
+tpr_upper    = np.clip(tpr_mean+tpr_std, 0, 1)
+tpr_lower    = tpr_mean-tpr_std
+auc          = np.mean(results[kind]['auc'])
 
-if False:
-    import plotly.graph_objects as go
-
-    c_fill      = 'rgba(52, 152, 219, 0.2)'
-    c_line      = 'rgba(52, 152, 219, 0.5)'
-    c_line_main = 'rgba(41, 128, 185, 1.0)'
-    c_grid      = 'rgba(189, 195, 199, 0.5)'
-    c_annot     = 'rgba(149, 165, 166, 0.5)'
-    c_highlight = 'rgba(192, 57, 43, 1.0)'
-
-    fig = go.Figure([
-        go.Scatter(
-            x          = fpr_mean,
-            y          = tpr_upper,
-            line       = dict(color=c_line, width=1),
-            hoverinfo  = "skip",
-            showlegend = False,
-            name       = 'upper'),
-        go.Scatter(
-            x          = fpr_mean,
-            y          = tpr_lower,
-            fill       = 'tonexty',
-            fillcolor  = c_fill,
-            line       = dict(color=c_line, width=1),
-            hoverinfo  = "skip",
-            showlegend = False,
-            name       = 'lower'),
-        go.Scatter(
-            x          = fpr_mean,
-            y          = tpr_mean,
-            line       = dict(color=c_line_main, width=2),
-            hoverinfo  = "skip",
-            showlegend = True,
-            name       = f'AUC: {auc:.3f}')
-    ])
-    fig.add_shape(
-        type ='line', 
-        line =dict(dash='dash'),
-        x0=0, x1=1, y0=0, y1=1
-    )
-    fig.update_layout(
-        template    = 'plotly_white', 
-        title_x     = 0.5,
-        xaxis_title = "1 - Specificity",
-        yaxis_title = "Sensitivity",
-        width       = 800,
-        height      = 800,
-        legend      = dict(
-            yanchor="bottom", 
-            xanchor="right", 
-            x=0.95,
-            y=0.01,
-        )
-    )
-    fig.update_yaxes(
-        range       = [0, 1],
-        gridcolor   = c_grid,
-        scaleanchor = "x", 
-        scaleratio  = 1,
-        linecolor   = 'black')
-    fig.update_xaxes(
-        range       = [0, 1],
-        gridcolor   = c_grid,
-        constrain   = 'domain',
-        linecolor   = 'black')
-    
-    fig.show()
-
-# %% ---
 
 # %% ---
 # TODO: Usar SHAP para la explicacion
@@ -257,7 +185,7 @@ shap_values = explainer.shap_values(dataset)
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-N_FEATURES : int = 15
+N_FEATURES : int = 6
 
 fig = plt.figure(
     constrained_layout=True,
@@ -327,7 +255,7 @@ shap.plots.bar(
     max_display=N_FEATURES,
     show=False,
 )
-plt.title(f"Global feature importance")
+plt.title("Global feature importance")
 
 ax5 = fig.add_subplot(gs[1, 3:6])
 shap.plots.beeswarm(
@@ -362,9 +290,9 @@ plt.title(f"Local explanation summary")
 
 plt.suptitle(f"{CLASIFICADOR.upper()} - Score: {auc:.3f} - Seed: {params['train']['seed']}")
 
-# Guarda la figura, pero aun necesita limpiarla
-fig.set_size_inches(20, 12)
-fig.savefig("fig/panel_pacientes.svg", dpi=100)
+if __name__ == "__main__": # This, to avoid saving 5,000 figs
+    fig.set_size_inches(20, 12)
+    fig.savefig(f"fig/panel_{RANDOM_STATE_SEED}.svg", dpi=100)
 
 # plt.tight_layout()
 
@@ -379,24 +307,25 @@ cohort_exps = list(EXPLAINATION.cohorts.values())
 exp_shap_abnormal = pd.DataFrame( 
     cohort_exps[0].values ,  
     columns = cohort_exps[0].feature_names
-).abs().mean()
+) #.abs().mean()
 
 exp_shap_healty = pd.DataFrame( 
     cohort_exps[1].values ,  
     columns = cohort_exps[1].feature_names
-).abs().mean()
+) #.abs().mean()
 
-# Loggin de Metricas
+SHAP_val = pd.concat(
+    [exp_shap_healty, exp_shap_abnormal],
+    ignore_index=True,
+)
 
-import json
-with open("metrics.json", "w") as f:
+dataset2 = dataset
+dataset2["LABELS"] = label_homa
 
-    metrics_json = {}
+MERGED = pd.concat(
+    [dataset2, SHAP_val],
+    axis = "columns", 
+    keys = ["Measurements","SHAP"]
+)
 
-    # metrics_json["seed"] = params["train"]["seed"]
-    metrics_json[f"auc_{kind}"] = auc
-
-    metrics_json["shap_abnormal"] = exp_shap_abnormal.to_dict()
-    metrics_json["shap_healty"] = exp_shap_healty.to_dict()
-
-    json.dump(metrics_json, f, indent = 4)
+MERGED.to_parquet(path="datasett3.pkl")
