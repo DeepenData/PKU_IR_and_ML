@@ -39,6 +39,9 @@ def objective(trial) -> float:
     with open("metrics.json", "r") as f:
         metrics = json.load(f)
 
+    # TODO: Set this as a function
+    # model_metrics, _, _ = train_model(seed, dataset)
+
     trial.set_user_attr("shap_abnormal", metrics["shap_abnormal"])
     trial.set_user_attr("shap_healty", metrics["shap_healty"])
 
