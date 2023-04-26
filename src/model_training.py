@@ -37,7 +37,7 @@ def data_preprocess(
     )
 
     # Resampling to the original ratio of classes
-    global X_test_res
+    global X_test_res  # So I can call it from SHAP
     X_test_res = pd.concat(
         [
             X_test[y_test == 0].sample(80, replace=True),
@@ -46,7 +46,7 @@ def data_preprocess(
         ignore_index=True,
     )
 
-    global y_test_res
+    global y_test_res  # So I can call it from SHAP
     y_test_res = [0] * 80 + [1] * 20
 
     return X_df, y_df, X_train, X_test_res, y_train, y_test_res

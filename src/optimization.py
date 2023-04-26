@@ -58,3 +58,8 @@ study.optimize(objective, n_trials=300)
 
 
 # %%
+optuna.visualization.plot_pareto_front(
+    study, target_names=["AUC", "Phenylalanine Contribution"]
+)
+
+study.get_trials()
