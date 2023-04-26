@@ -5,7 +5,7 @@ as an adequate marker for altered HOMA levels.
 # %%
 # Importamos las cosas de Optuna
 import optuna
-from model_training import main as model_training_main
+from src.model_training import objective as model_training_main
 
 # First of all, sorry. This is a mixture of using DVC for ease of tracking in several computes, plus Optuna for ease of
 # running a lot of trials. As DVC expects a plain-text file for data, said data is saved in metrics.json.
@@ -29,16 +29,9 @@ def objective(trial) -> float:
     }
 
     # Load the YAML file into a Python dictionary
-    model, feature_metrics, auc = model_training_main(
-        data_path="data/resampled_data_SMOTE.csv",
+    _, feature_metrics, auc = model_training_main(
+        # data_path="data/resampled_data_SMOTE.csv",
         seed=params["seed"],
-        kfold_splits=5,
-        xg_params={
-            "eta": params["eta"],
-            # "booster": params["booster"],
-            "objective": params["objective"],
-            "eval_metric": params["eval_metric"],
-        },
     )
 
     return auc, feature_metrics["SHAP_abnormal"]["fenilalax"]
@@ -54,7 +47,7 @@ study = optuna.create_study(
     load_if_exists=True,
 )
 
-study.optimize(objective, n_trials=300)
+study.optimize(objective, n_trials=100)
 
 
 # %%

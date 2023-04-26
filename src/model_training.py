@@ -10,7 +10,7 @@ from imblearn.over_sampling import RandomOverSampler
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
-# import shap
+import shap
 
 
 def data_preprocess(
@@ -72,9 +72,15 @@ def xg_train(X_train, y_train, xg_params: dict, kfold_splits=5, seed=None):
     for train_idx, val_idx in folds:
         # Sub-empaquetado del train-set en formato de XGBoost
         dtrain = xgboost.DMatrix(
-            X_train.iloc[train_idx, :], label=y_train.iloc[train_idx]
+            X_train.iloc[train_idx, :],
+            label=y_train.iloc[train_idx],
+            enable_categorical=True,
         )
-        dval = xgboost.DMatrix(X_train.iloc[val_idx, :], label=y_train.iloc[val_idx])
+        dval = xgboost.DMatrix(
+            X_train.iloc[val_idx, :],
+            label=y_train.iloc[val_idx],
+            enable_categorical=True,
+        )
 
         model = xgboost.train(
             dtrain=dtrain,
@@ -88,36 +94,14 @@ def xg_train(X_train, y_train, xg_params: dict, kfold_splits=5, seed=None):
     return model
 
 
-## MOVE FROM HERE
-with open("params.yml", "r") as f:
-    ext_params = yaml.load(f, Loader=yaml.FullLoader)
-
-processed_data = data_preprocess(
-    "HOMA-IR alterado",
-    data_path="data/resampled_data_SMOTE.csv",
-    removed_features=ext_params["feature_engineering"]["removed_features"],
-)
-
-default_xg_params = {
-    "eta": 0.01,
-    "objective": "binary:logistic",
-    "subsample": 0.5,
-    "eval_metric": "logloss",
-}
-
-modelo = xg_train(processed_data[0], processed_data[2], default_xg_params)
-
-
-# %%
 def xg_test(model, X_test, y_test) -> float:
-    testset = xgboost.DMatrix(X_test, label=y_test)
+    testset = xgboost.DMatrix(X_test, label=y_test, enable_categorical=True)
     y_preds = model.predict(testset)
+
     return roc_auc_score(testset.get_label(), y_preds)
 
 
 # %%
-
-
 def compute_model_metrics(model, dataset, y_df):
     internal_feature_metrics = pd.DataFrame(
         {
@@ -143,18 +127,79 @@ def compute_model_metrics(model, dataset, y_df):
         cohort_exps[1].values, columns=cohort_exps[1].feature_names
     )  # .abs().mean()
 
-    SHAP_val = pd.concat(
-        [exp_shap_healty, exp_shap_abnormal],
-        ignore_index=True,
-    )
-
     return internal_feature_metrics, exp_shap_healty, exp_shap_abnormal
 
 
+def objective(seed=None):
+    ## MOVE FROM HERE
+    with open("params.yml", "r") as f:
+        ext_params = yaml.load(f, Loader=yaml.FullLoader)
+
+    processed_data = data_preprocess(
+        "HOMA-IR alterado",
+        data_path="data/resampled_data_SMOTE.csv",
+        removed_features=ext_params["feature_engineering"]["removed_features"],
+    )
+
+    default_xg_params = {
+        # "eta": 0.01,
+        "objective": "binary:logistic",
+        # "subsample": 0.5,
+        "eval_metric": "logloss",
+    }
+
+    modelo = xg_train(
+        processed_data[0], processed_data[2], default_xg_params, seed=seed
+    )
+
+    print(
+        "AUC test data:", xg_test(modelo, processed_data[1], processed_data[3])
+    )  # 1.00
+    print(
+        "AUC train data:", xg_test(modelo, processed_data[0], processed_data[2])
+    )  # 0.97
+
+    pd.DataFrame(
+        {
+            "true": processed_data[3],
+            "predict": modelo.predict(
+                xgboost.DMatrix(
+                    processed_data[1], label=processed_data[3], enable_categorical=True
+                )
+            ).tolist(),
+        }
+    )
+
+    modelo.get_score(importance_type="gain")
+    # %cd /DeepenData/Repos/Phenylketonuria_IR_and_Machine_Learning
+
+    (
+        internal_feature_metrics,
+        exp_shap_healty,
+        exp_shap_abnormal,
+    ) = compute_model_metrics(modelo, processed_data[1], processed_data[3])
+
+    feature_metrics = pd.concat(
+        {
+            "SHAP_healty": exp_shap_healty.abs().mean(),
+            "SHAP_abnormal": exp_shap_abnormal.abs().mean(),
+        },
+        axis="columns",
+    )
+
+    feature_metrics = (
+        feature_metrics.join(internal_feature_metrics)
+        .fillna(0)
+        .sort_values(by="Gain", ascending=False)
+    )
+
+    auc = xg_test(modelo, processed_data[1], processed_data[3])
+
+    return modelo, feature_metrics, auc
+
+
 # %% ---
-
-
-def main(
+"""def main(
     data_path="data/resampled_data_SMOTE.csv",
     seed=None,
     kfold_splits=5,
@@ -204,16 +249,6 @@ def main(
     feature_metrics = feature_metrics.join(internal_feature_metrics).fillna(0)
 
     return model, feature_metrics, auc
-
-
-# %% ---
-model, feature_metrics, auc = main(
-    data_path="data/resampled_data_SMOTE.csv",
-    seed=None,
-    kfold_splits=5,
-)
-
-feature_metrics.sort_values(by="SHAP_abnormal", ascending=False).head()
-
+"""
 
 # %% ---
