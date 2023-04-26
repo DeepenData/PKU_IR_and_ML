@@ -146,7 +146,7 @@ for train, test in folds:
 
     model  = xgboost.train(
         dtrain                = dtrain,
-        params                = params, 
+        params                = params["xgboost"], 
         evals                 = [(dtrain, 'train'), (dval, 'val')],
         num_boost_round       = 1000,
         verbose_eval          = False,
