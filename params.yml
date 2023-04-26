@@ -5,6 +5,8 @@ feature_engineering:
     - HOMA2B(%)
     - HOMA2S%
     - insuprom
+    - glupromx
+    - glummol
     - quickix
     - Peso
     - Estatura
