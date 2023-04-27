@@ -130,47 +130,50 @@ def compute_model_metrics(model, dataset, y_df):
     return internal_feature_metrics, exp_shap_healty, exp_shap_abnormal
 
 
-def objective(seed=None):
+def objective(seed=None, default_xg_params=None):
     ## MOVE FROM HERE
     with open("params.yml", "r") as f:
         ext_params = yaml.load(f, Loader=yaml.FullLoader)
 
     processed_data = data_preprocess(
         "HOMA-IR alterado",
-        data_path="data/resampled_data_SMOTE.csv",
+        data_path="data/data.csv",
         removed_features=ext_params["feature_engineering"]["removed_features"],
     )
 
-    default_xg_params = {
-        # "eta": 0.01,
-        "objective": "binary:logistic",
-        # "subsample": 0.5,
-        "eval_metric": "logloss",
-    }
+    if not default_xg_params:
+        default_xg_params = {
+            "eta": 0.30,
+            "objective": "binary:logistic",
+            # "subsample": 0.5,
+            "eval_metric": "logloss",
+            "max_depth": 10,
+            "scale_pos_weight": 5,
+        }
 
     modelo = xg_train(
         processed_data[0], processed_data[2], default_xg_params, seed=seed
     )
 
-    print(
-        "AUC test data:", xg_test(modelo, processed_data[1], processed_data[3])
-    )  # 1.00
-    print(
-        "AUC train data:", xg_test(modelo, processed_data[0], processed_data[2])
-    )  # 0.97
+    # print(
+    #     "AUC test data:", xg_test(modelo, processed_data[1], processed_data[3])
+    # )  # 1.00
+    # print(
+    #     "AUC train data:", xg_test(modelo, processed_data[0], processed_data[2])
+    # )  # 0.97
 
-    pd.DataFrame(
-        {
-            "true": processed_data[3],
-            "predict": modelo.predict(
-                xgboost.DMatrix(
-                    processed_data[1], label=processed_data[3], enable_categorical=True
-                )
-            ).tolist(),
-        }
-    )
+    #pd.DataFrame(
+    #    {
+    #        "true": processed_data[3],
+    #        "predict": modelo.predict(
+    #            xgboost.DMatrix(
+    #                processed_data[1], label=processed_data[3], enable_categorical=True
+    #            )
+    #        ).tolist(),
+    #    }
+    #)
 
-    modelo.get_score(importance_type="gain")
+    # modelo.get_score(importance_type="gain")
     # %cd /DeepenData/Repos/Phenylketonuria_IR_and_Machine_Learning
 
     (
