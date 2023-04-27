@@ -57,7 +57,7 @@ study = optuna.create_study(
     load_if_exists=True,
 )
 
-study.optimize(objective, n_trials=100)
+study.optimize(objective, n_trials=100, n_jobs=-1)
 
 
 # %%
