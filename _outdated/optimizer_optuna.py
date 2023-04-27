@@ -50,7 +50,7 @@ def objective(trial) -> float:
     return metrics["auc_val"], metrics["shap_abnormal"]["Phenylalax"]
 
 
-study_name: str = "oversample_ADASYNT_2"
+study_name: str = "oversample_ADASYNT_3"
 
 study = optuna.create_study(
     study_name=study_name,
@@ -61,6 +61,6 @@ study = optuna.create_study(
 )
 
 # Run it with 5,000 trials. May take a while.
-study.optimize(objective, n_trials=300)
+study.optimize(objective, n_trials=10, n_jobs=1)
 
 # %%
