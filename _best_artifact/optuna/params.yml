@@ -1,0 +1,35 @@
+feature_engineering:
+  removed_features:
+    - HOMA2-IR
+    - HOMA2B(%)
+    - HOMA2B(%)
+    - HOMA2S%
+    - insuprom
+    - glupromx
+    - glummol
+    - quickix
+    - Peso
+    - Estatura
+    - Edad
+    - SP_gr/kg
+    - Proteina_natural
+    - Proteina_SP
+    - GRASAProm(G)
+    - CARBOHIDRATOProm_(G)
+    - ENERGIAProm_(KCAL)
+    - COLESTEROLProm_(MG)
+    - FENILALANINAProm_(G)
+    - TIROSINAProm_(G)
+    - VITAMINA_B12Prom_(MCG)
+    - FOLATOProm_(MCG)
+    - CALCIOProm_(MG)
+    - COBREProm_(MG)
+    - HIERROProm_(MG)
+    - ZINCProm_(MG)
+    - VITAMINA_Dprom
+train:
+  balance_classes: false
+  kfold_splits: 3
+  seed: 9050
+  testset_split: 0.2
+  tree_layers: 10
