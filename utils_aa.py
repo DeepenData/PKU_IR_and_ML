@@ -255,14 +255,14 @@ class generate_model:
 with open("params.yml", "r") as f:
     ext_params = yaml.load(f, Loader=yaml.FullLoader)
 
-
+import random
 def objective(trial, data ,tuned_params = None, finetunning: bool = False) -> float:
     """
     The function that runs a single model and evaluates it.
     """
 
     if  finetunning:
-        seed = 42
+        seed = random.randint(1, 10_000)
 
         params={
                 "objective":   "binary:logistic",
@@ -323,17 +323,20 @@ def get_median_dict(my_study):
     return median_dict
 
 
-def make_ranking_plots(sampling, hyperparams_study):
+def make_ranking_plots(sampling, hyperparams_study, data, CUTOFF_AUC, CUTOFF_PHE):
     
 
 
-    CUTOFF_AUC = 0.80
-    CUTOFF_PHE = 0.20
+    #CUTOFF_AUC = 0.80
+    #CUTOFF_PHE = 0.40
 
     #study = study_ADASYN_sampling
     bs_trials = pd.DataFrame()
-    for t in sampling.best_trials:
-        bs_trials[t.number] = list(t.params.values()) + list(t.values)
+    for t in sampling.get_trials():
+        if t.values[0] > CUTOFF_AUC and t.values[1] > CUTOFF_PHE:
+        
+        
+            bs_trials[t.number] = list(t.params.values()) + list(t.values)
         #and saves them to rows in a dataframe
 
     bs_trials.index = ["seed", "auc", "phe",]
@@ -355,9 +358,9 @@ def make_ranking_plots(sampling, hyperparams_study):
 
         model_instance = generate_model(
             "HOMA-IR alterado",
-            "_best_artifact/optuna/resampled_data_ADASYN.csv",
+            data, #"_best_artifact/optuna/resampled_data_ADASYN.csv",
             removed_features=ext_params["feature_engineering"]["removed_features"],
-            xg_params=get_median_dict(hyperparams_study)
+            xg_params=hyperparams_study
     ,
             kfold_splits=5,
             seed=int(number),
