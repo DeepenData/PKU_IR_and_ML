@@ -1,4 +1,6 @@
+
 # Risk of developing Insulin Resistance in adults’ subjects with Phenylketonuria: Machine Learning model reveals association with phenylalanine concentration
+## To reproduce the results from the paper, please change the Branch from 'main' to 'alejandro'. Within this branch, the notebook 'reproduce_results.ipynb' generates the figures related to machine-learning results. 
 
 This repository contains the scripts that were used in the publication 
 https://www.mdpi.com/{REPLACE_THIS}
