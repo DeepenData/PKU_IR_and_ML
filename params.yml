@@ -33,3 +33,10 @@ train:
   seed: 9050
   testset_split: 0.2
   tree_layers: 10
+directions:
+  - maximize
+  - maximize
+metrics:
+  - SHAP_abnormal
+  - fenilalax
+

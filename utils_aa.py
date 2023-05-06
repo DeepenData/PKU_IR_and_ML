@@ -324,28 +324,28 @@ def get_median_dict(my_study):
 
 
 def make_ranking_plots(sampling, hyperparams_study, data, CUTOFF_AUC, CUTOFF_PHE):
-    
+    # CUTOFF_AUC = 0.80
+    # CUTOFF_PHE = 0.40
 
-
-    #CUTOFF_AUC = 0.80
-    #CUTOFF_PHE = 0.40
-
-    #study = study_ADASYN_sampling
+    # study = study_ADASYN_sampling
     bs_trials = pd.DataFrame()
     for t in sampling.get_trials():
         if t.values[0] > CUTOFF_AUC and t.values[1] > CUTOFF_PHE:
-        
-        
             bs_trials[t.number] = list(t.params.values()) + list(t.values)
-        #and saves them to rows in a dataframe
+        # and saves them to rows in a dataframe
 
-    bs_trials.index = ["seed", "auc", "phe",]
-    bs_trials       = bs_trials.T
+    bs_trials.index = [
+        "seed",
+        "auc",
+        "phe",
+    ]
+    bs_trials = bs_trials.T
     paretos = {}
 
-    df_ranks = pd.DataFrame()
+    df_ranks_abnormal = pd.DataFrame()
+    df_ranks_healty = pd.DataFrame()
 
-    for number in bs_trials['seed']:
+    for number in bs_trials["seed"]:
         # instance_params = bs_trials.loc[number][
         #     ["max_depth", "eta", "subsample", "lambda", "alpha", "scale_pos_weight"]
         # ].to_dict()
@@ -354,36 +354,36 @@ def make_ranking_plots(sampling, hyperparams_study, data, CUTOFF_AUC, CUTOFF_PHE
         # instance_params["objective"] = "binary:logistic"
         # instance_params["eval_metric"] = "logloss"
 
-        #print(instance_params)
+        # print(instance_params)
 
         model_instance = generate_model(
             "HOMA-IR alterado",
-            data, #"_best_artifact/optuna/resampled_data_ADASYN.csv",
+            data,  # "_best_artifact/optuna/resampled_data_ADASYN.csv",
             removed_features=ext_params["feature_engineering"]["removed_features"],
-            xg_params=hyperparams_study
-    ,
+            xg_params=hyperparams_study,
             kfold_splits=5,
             seed=int(number),
         )
         #
-        print(model_instance.model.attributes())
+        #print(model_instance.model.attributes())
 
-        df_ranks[number] = model_instance.get_feature_metrics()["SHAP_abnormal"]
+        feature_metrics = model_instance.get_feature_metrics()
 
-        print(
-            "Phe_value : ",
-            model_instance.get_feature_metrics()["SHAP_abnormal"]["fenilalax"],
-            "\t",
-            "Phe_ranking : ",
-            model_instance.get_feature_metrics()["SHAP_abnormal"].rank(ascending=False)[
-                "fenilalax"
-            ],
-        )
+        df_ranks_abnormal[number] = feature_metrics["SHAP_abnormal"]
+        df_ranks_healty[number] = feature_metrics["SHAP_healty"]
 
-        print("\n")
-        
+        # print(
+        #     "Phe_value : ",
+        #     model_instance.get_feature_metrics()["SHAP_abnormal"]["fenilalax"],
+        #     "\t",
+        #     "Phe_ranking : ",
+        #     model_instance.get_feature_metrics()["SHAP_abnormal"].rank(ascending=False)["fenilalax"],
+        # )
+
+        # print("\n")
+
     labels_relabel = {
-        "Género": "gender",
+        "GÃ©nero": "Sex",
         "aleator": "random",
         "Edad": "Age",
         "Peso": "Weight",
@@ -391,7 +391,7 @@ def make_ranking_plots(sampling, hyperparams_study, data, CUTOFF_AUC, CUTOFF_PHE
         "IMC": "BMI",
         "Circunferencia de cintura": "Waist circumference",
         "ATPII/AHA/IDF": "ATPII/AHA/IDF",
-        "fenilalax": "Phenylalax",
+        "fenilalax": "Phenylalanine",
         "glupromx": "Glupromx",
         "glummol": "Glummol",
         "insuprom": "Insuprom",
@@ -459,51 +459,75 @@ def make_ranking_plots(sampling, hyperparams_study, data, CUTOFF_AUC, CUTOFF_PHE
 
     import plotly.express as px
 
-    df_ranks_long = df_ranks.T
-    order = (
-        df_ranks_long.rank(axis="columns", ascending=False)
-        .median(axis="rows")
-        .sort_values()
-        .index
-    )
+    df_ranks_long = df_ranks_abnormal.T
+    order = df_ranks_long.rank(axis="columns", ascending=False).median(axis="rows").sort_values().index
 
     # Create a grouped barplot using Plotly
     fig_barplot = px.bar(
-        df_ranks,
+        df_ranks_abnormal,
         barmode="group",
-        template="ggplot2",
     )
-    fig_barplot.update_xaxes(
-        categoryorder="array", categoryarray=order, labelalias=labels_relabel
-    )
+    # fig_barplot.update_xaxes(categoryorder="array", categoryarray=order, labelalias=labels_relabel)
 
+    # fig_barplot.update_layout(
+    #     xaxis_title="Feature in the dataset",
+    #     yaxis_title="Shapley Value importance",
+    #     title="Shapley values for abnormal samples",
+    #     legend_title="Model",
+    # )
 
-    fig_barplot.update_layout(
-        xaxis_title="Feature in the dataset",
-        yaxis_title="Shapley Value importance",
-        title="Shapley values for abnormal samples",
-        legend_title="Model",
-    )
-
-    # Show the plot
-    fig_barplot.show()
+    # # Show the plot
+    # fig_barplot.show()
     df_ranks_long["auc_score"] = bs_trials["auc"]
 
-    fig = px.parallel_coordinates(
-        df_ranks_long,
-        # color='fenilalax',
-        color="auc_score",
-        dimensions=order.tolist()[:10] + ["auc_score"],
-        labels=labels_relabel,
-        title="Shapley values for abnormal samples - ADASYNT",
-    )
+    # fig = px.parallel_coordinates(
+    #     df_ranks_long,
+    #     # color='fenilalax',
+    #     color="auc_score",
+    #     dimensions=order.tolist()[:10] + ["auc_score"],
+    #     labels=labels_relabel,
+    #     title="Shapley values for abnormal samples - ADASYNT",
+    # )
 
-    fig.update_layout(
-        coloraxis_showscale=False,
-        # title="Feature importance",
-        xaxis_title="Feature in the dataset",
-        yaxis_title="Shapley Value importance",
-        # legend_title="Shapley values for abnormal samples",
-    )
+    # fig.update_layout(
+    #     coloraxis_showscale=False,
+    #     # title="Feature importance",
+    #     xaxis_title="Feature in the dataset",
+    #     yaxis_title="Shapley Value importance",
+    #     # legend_title="Shapley values for abnormal samples",
+    # )
 
-    fig.show()
+    # fig.show()
+
+    #return df_ranks_long, df_ranks_abnormal, df_ranks_healty
+    
+    
+    
+    def rank_sort(df_ranks_abnormal : pd.DataFrame) -> pd.Index:
+        """This takes the dataframe, ranks its variables, and sorts them by the mean ranking"""
+        return df_ranks_abnormal.rank(axis="rows").mean(axis="columns").sort_values(ascending=False).index
+
+    import plotly.express as px
+    order = rank_sort(df_ranks_abnormal) # Converts ranks to an ordered list
+
+    def wrapper_pcoorplot(df_ranks_abnormal, dims = order.tolist()):
+        """Small wapper around plotly paralel coordinates plot"""
+        fig_ranks = px.parallel_coordinates(
+            df_ranks_abnormal.T, 
+            dimensions=dims,
+            color="fenilalax",
+            labels=labels_relabel,
+            color_continuous_scale='BuGn',
+        )
+
+        fig_ranks.update_layout(
+            yaxis_tickformat=".2f",
+            coloraxis_colorbar=dict(title="Phe (Shapley value)"),
+        )
+        
+        return fig_ranks
+
+    # Creates the figure with the first [:15] features according to ranking
+    fig_abnormal = wrapper_pcoorplot(df_ranks_abnormal, order.tolist()[:15])
+    #fig_abnormal.write_image(f"abnormal_ranks_long_{1}.svg", width=4.5*DPI, height=1.5*DPI, scale = 1.0) # Save fig
+    fig_abnormal.show() # Show fig, as this is a notebook
