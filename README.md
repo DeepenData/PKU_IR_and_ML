@@ -9,4 +9,4 @@ Phenylketonuria is an autosomal recessive inborn error of metabolism where high 
 
 -----
 
-**Running this scripts**: 
+**Running this Figures 2 and 3 are generated**: reproduce_results.ipynb
