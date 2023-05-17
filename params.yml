@@ -39,4 +39,77 @@ directions:
 metrics:
   - SHAP_abnormal
   - fenilalax
-
+  
+labels_relabel:
+        GÃ©nero: Sex
+        aleator: random
+        Edad: Age
+        Peso: Weight
+        Estatura: Height
+        IMC: BMI
+        Circunferencia de cintura: Waist circumference
+        ATPII/AHA/IDF: ATPII/AHA/IDF
+        fenilalax: Phenylalanine
+        glupromx: Glupromx
+        glummol: Glummol
+        insuprom: Insuprom
+        HOMA-IR alterado: HOMA-IR altered
+        HOMA2-IR: HOMA2-IR
+        HOMA2B(%): HOMA2B(%)
+        HOMA2S%: HOMA2S%
+        quickix: Quickix
+        ohd3x: ohd3x
+        tirosinax: Tyrosinax
+        Alanina: Alanine
+        Aspartato: Aspartate
+        Glutamato: Glutamate
+        Leucina: Leucine
+        Ornitina: Ornithine
+        Prolina: Proline
+        Tirosina: Tyrosine
+        Carnitina libre: Free Carnitine
+        Propionilcarnitina: Propionylcarnitine
+        Isovalerilcarnitina: Isovalerylcarnitine
+        Tiglilcarnitina: Tiglilcarnitine
+        Me-Glutarilcarnitina: Me-Glutarylcarnitine
+        Decanoilcarnitina: Decanoylcarnitine
+        Tetradecanoilcarnitina: Tetradecanoylcarnitine
+        3-OH-Isovalerilcarnitina: 3-OH-Isovalerylcarnitine
+        3-OH-Palmitoilcarnitina: 3-OH-Palmitoylcarnitine
+        Linoleoilcarnitina: Linoleoilcarnitine
+        Arginina: Arginine
+        Citrulina: Citrulline
+        Glicina: Glycine
+        Metionina: Methionine
+        Fenilalanina: Phenylalanine
+        Succinilacetona: Succinylacetone
+        Valina: Valine
+        Acetilcarnitina: Acetylcarnitine
+        Butirilcarnitina: Butyrylcarnitine
+        Glutarilcarnitina: Glutarylcarnitine
+        Hexanoilcarnitina: Hexanoylcarnitine
+        Octanoilcarnitina: Octanoylcarnitine
+        Dodecanoilcarnitina: Dodecanoylcarnitine
+        Tetradecenoilcarnitina: Tetradecenoylcarnitine
+        Palmitoilcarnitina: Palmitoylcarnitine
+        Estearoilcarnitina: Stearoylcarnitine
+        3-OH-Linoleoilcarnitina: 3-OH-Linoleoylcarnitine
+        PROTEINAProm_(G): Protein avg. (g)
+        Proteina_natural: Protein natural
+        %_proteina_natural: % Natural Protein
+        Proteina_SP: SP Protein
+        SP_gr/kg: SP (gr/kg)
+        %_Proteina_SP: % SP Protein
+        GRASAProm(G): Fat avg. (g)
+        CARBOHIDRATOProm_(G): CARBOHYDRATE avg. (g)
+        ENERGIAProm_(KCAL): ENERGY avg. (KCAL)
+        COLESTEROLProm_(MG): CHOLESTEROL avg. (mg)
+        FENILALANINAProm_(G): PHENYLALANINE_avg (g)
+        TIROSINAProm_(G): TYROSINE avg. (g)
+        VITAMINA_B12Prom_(MCG): Vitamin B12 avg. (MCG)
+        FOLATOProm_(MCG): Folate avg. (MCG)
+        CALCIOProm_(MG): Calcium avg. (mg)
+        COBREProm_(MG): Copper avg. (mg)
+        HIERROProm_(MG): Iron avg. (mg)
+        ZINCProm_(MG): Zinc avg. (mg)
+        VITAMINA_Dprom: Vitamin D avg.
