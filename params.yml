@@ -1,6 +1,5 @@
 feature_engineering:
   removed_features:
-    - HOMA2-IR
     - HOMA2B(%)
     - HOMA2B(%)
     - HOMA2S%
