@@ -1,9 +1,7 @@
-/models
-/fig
+
 /.vscode
 
 __pycache__/
 homa_studies.db
 
-metrics.json
-params.yaml
+
