@@ -128,9 +128,9 @@ def make_pareto_plot(study):
 
     import plotly.io as pio
 
-    dpi = 900  # Set the desired resolution (dots per inch)
-    output_filename = f"pareto_{'study_name'}.png"
-    pio.write_image(fig, output_filename, format="png", scale=dpi / 96)
+    # dpi = 900  # Set the desired resolution (dots per inch)
+    # output_filename = f"pareto_{'study_name'}.png"
+    # pio.write_image(fig, output_filename, format="png", scale=dpi / 96)
 
     # Show the plot
     fig.show()
