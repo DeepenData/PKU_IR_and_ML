@@ -369,3 +369,336 @@ class SparkDataProcessor:
                 df = df.withColumnRenamed(old_name, new_name)
 
         return self.encode_and_convert(df.toPandas()), df
+
+
+
+
+
+class DataSplitter:
+    """Una instancia del objeto con la data spliteada"""
+    def __init__(self, test_size: float, random_state: int):
+        self.test_size = test_size
+        self.random_state = random_state
+
+    def split_data(self, df : pd.DataFrame, label_col : str):
+        """Corre un splitting stratificado"""
+        # TODO: porque el Dataframe no es parte de la instancia del objeto ? 
+
+        X = df.drop(label_col, axis=1)
+        y = df[label_col]
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=self.test_size, random_state=self.random_state, stratify=y
+        )
+
+        X_train_df = pd.DataFrame(X_train, columns= X.columns )
+        X_test_df  = pd.DataFrame(X_test,  columns= X.columns )
+        y_train_df = pd.DataFrame(y_train, columns=[label_col])
+        y_test_df  = pd.DataFrame(y_test,  columns=[label_col])
+
+        return X_train_df, X_test_df, y_train_df.iloc[:, 0].astype('category'), y_test_df.iloc[:, 0].astype('category')
+
+
+class ModelInstance:
+    """Instancia de un modelo"""
+
+    def __init__(
+        self, df : pd.DataFrame, 
+        target: str, test_size: float, 
+        xgb_params: dict, kfold_splits: int, 
+        seed: float = None
+    ) -> None:
+        if xgb_params is None:
+            xgb_params = {"seed": seed}
+        
+        df        = DataImputer(df).fit_transform().df
+
+        self.X_train, self.X_test, self.y_train, self.y_test = DataSplitter(
+            test_size=test_size, random_state=seed
+        ).split_data(df=df, label_col=target)
+
+        cv = StratifiedKFold(n_splits=kfold_splits, shuffle=True, random_state=seed)
+        folds = list(cv.split(self.X_train, self.y_train))
+
+        for train_idx, val_idx in folds:
+            # Sub-empaquetado del train-set en formato de XGBoost
+            dtrain = xgboost.DMatrix(
+                self.X_train.iloc[train_idx, :],
+                label=self.y_train.iloc[train_idx],
+                enable_categorical=True,
+            )
+            dval = xgboost.DMatrix(
+                self.X_train.iloc[val_idx, :],
+                label=self.y_train.iloc[val_idx],
+                enable_categorical=True,
+            )
+
+            self.model = xgboost.train(
+                dtrain=dtrain,
+                params=xgb_params,
+                evals=[(dtrain, "train"), (dval, "val")],
+                num_boost_round=1000,
+                verbose_eval=False,
+                early_stopping_rounds=10,
+            )
+
+    def get_AUC_on_test_data(self) -> float:
+        testset = xgboost.DMatrix(self.X_test, label=self.y_test, enable_categorical=True)
+        y_preds = self.model.predict(testset)
+
+        return roc_auc_score(testset.get_label(), y_preds)
+
+    def get_feature_explanation(self) -> pd.DataFrame:
+
+        explainer = shap.TreeExplainer(self.model)
+
+        # Extrae la explicacion SHAP en un DF
+        explanation = explainer(self.X_test).cohorts(self.y_test.replace({0: "Healty", 1: "Abnormal"}).tolist())
+
+        cohort_exps = list(explanation.cohorts.values())
+
+        exp_shap_abnormal = pd.DataFrame(cohort_exps[0].values, columns=cohort_exps[0].feature_names)  # .abs().mean()
+
+        exp_shap_healty = pd.DataFrame(cohort_exps[1].values, columns=cohort_exps[1].feature_names)  # .abs().mean()
+
+        feature_metrics : pd.DataFrame = pd.concat(
+            {
+                "SHAP_healty": exp_shap_healty.abs().mean(),
+                "SHAP_abnormal": exp_shap_abnormal.abs().mean(),
+            },
+            axis="columns",
+        )
+
+        return feature_metrics  # ["SHAP_abnormal"][a_feature]
+
+
+def objective(
+    trial, data : pd.DataFrame, target : str, shap_feature, 
+    tuned_params=None, finetunning: bool = False, 
+    ) -> tuple[float, float]:
+
+    """
+    The function that runs a single model and evaluates it.
+    """
+
+    if finetunning:
+        seed = random.randint(1, 10_000)
+
+        # TOOD: definir fuera? 
+        params = {
+            "objective": "binary:logistic",
+            "eval_metric": "logloss",
+            "max_depth": trial.suggest_int(
+                "max_depth",
+                2,
+                10,
+            ),
+            "eta": trial.suggest_float("eta", 0.01, 0.5),
+            "subsample": trial.suggest_float("subsample", 0.1, 0.5),
+            "lambda": trial.suggest_float("lambda", 0, 1),
+            "alpha": trial.suggest_float("alpha", 0, 1),
+            "scale_pos_weight": trial.suggest_float("scale_pos_weight", 0, 5),
+        }
+
+        if data[target].dtype != 'category': 
+            params.update({"objective": "reg:squarederror", "eval_metric": "rmse"})
+        
+    else:
+        params = tuned_params
+        seed = trial.suggest_int("seed", 1, 10_000)
+
+    model_instance = ModelInstance(
+        df=data,
+        target=target,
+        test_size=0.3,
+        xgb_params=params,
+        kfold_splits=trial.suggest_int("kfold_splits", 2, 5),
+        seed=seed,
+    )
+
+    return (
+        model_instance.get_AUC_on_test_data(),
+        model_instance.get_feature_explanation()["SHAP_abnormal"][shap_feature],
+    )
+
+
+@ray.remote(num_cpus=CPUS_PER_JOB, max_retries=5)
+def make_a_study(
+        study_name: str, 
+        data: pd.DataFrame, 
+        target: str, 
+        shap_feature: str,  # 
+        n_jobs = -1,        # Por defecto todos los cores
+        n_trials : int = 50
+        ) -> optuna.Study:
+
+    # Instancia el estudio
+    hyperparameters_fine_tuning = optuna.create_study(
+        study_name=study_name,
+        load_if_exists=False,
+        directions=["maximize", "maximize"],
+        sampler=optuna.samplers.NSGAIISampler(),
+    )
+
+    # Corre el run de optimizacion
+    hyperparameters_fine_tuning.optimize(
+        lambda trial: objective(
+            trial, 
+            data, 
+            target=target, 
+            shap_feature=shap_feature, 
+            finetunning=True
+        ),
+        n_trials=n_trials,
+        n_jobs=CPUS_PER_JOB, # TODO: posiblemente pueda detectarlo ?
+        catch=(
+            TypeError,
+            ValueError,
+        ),
+    )
+    return hyperparameters_fine_tuning
+
+
+def make_multiple_studies(
+    data : ray.ObjectRef | pd.DataFrame, 
+    features: list[str], 
+    targets: list[str],
+    n_trials : int = 50) -> list[optuna.Study | ray.ObjectRef ]:
+    """Es un wrapper conveniente para multiples optimizadores"""
+
+    return [make_a_study.remote(f"{f}_predicts_{t}", data, t, f, n_trials=n_trials) for f in features for t in targets if f != t]
+
+
+
+
+from optuna.visualization._pareto_front import (
+    _get_pareto_front_info,
+    _make_scatter_object,
+    _make_marker,
+    _make_hovertext,
+)
+from typing import Sequence
+from optuna.trial import FrozenTrial
+import plotly.graph_objects as go
+import pandas as pd
+import optuna
+from optuna.visualization._plotly_imports import go
+from typing import Optional
+def make_pareto_plot(study: optuna.study.study.Study):
+
+    info = _get_pareto_front_info(study)
+
+    n_targets: int = info.n_targets
+    axis_order: Sequence[int] = info.axis_order
+    include_dominated_trials: bool = True
+    trials_with_values: Sequence[
+        tuple[FrozenTrial, Sequence[float]]
+    ] = info.non_best_trials_with_values
+    hovertemplate: str = "%{text}<extra>Trial</extra>"
+    infeasible: bool = False
+    dominated_trials: bool = False
+
+
+    def trials_df(trials_with_values, class_name):
+        x = [values[axis_order[0]] for _, values in trials_with_values]
+        y = [values[axis_order[1]] for _, values in trials_with_values]
+
+        df = pd.DataFrame({"x": x, "y": y})
+        df["class"] = class_name
+        return df
+
+
+    df_best = trials_df(info.best_trials_with_values, "best")
+    df_nonbest = trials_df(info.non_best_trials_with_values, "nonbest")
+    # df         = pd.concat([df_best, df_nonbest])
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=df_nonbest["x"],
+            y=df_nonbest["y"],
+            mode="markers",
+            marker=dict(
+                size=6, opacity=0.5, symbol="circle", line=dict(width=1, color="black")
+            ),
+            name="Suboptimal",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df_best["x"],
+            y=df_best["y"],
+            mode="markers",
+            marker=dict(
+                size=6, opacity=0.5, symbol="square", line=dict(width=1, color="black")
+            ),
+            name="Pareto frontier",
+        )
+    )
+    # Define the width and height of the plot
+    plot_width = 500
+    plot_height = 300
+    axis_label_font_size = 14
+
+
+    
+    
+    # Customize the plot
+    fig.update_layout(
+            xaxis=dict(
+                title=dict(
+                    text="Model performance (AUC)", font=dict(size=axis_label_font_size)
+                ),
+                range=[-0.05, 1.05],
+            ),
+            yaxis=dict(
+                title=dict(
+                    text=f"{study.study_name} (Shapley)", font=dict(size=axis_label_font_size)
+                ),
+                range=[-0.01, 1],  # Here is the modification
+            ),
+            font=dict(size=18),
+            # plot_bgcolor='white',
+            legend=dict(x=0.3, y=1.15, bgcolor="rgba(255, 255, 255, 0)", orientation="h"),
+            width=plot_width,
+            height=plot_height,
+            margin=dict(l=0, r=0, t=0, b=0),
+        shapes=[
+        dict(
+            type="rect",
+            xref="x",
+            yref="paper",
+            x0=0.9,
+            x1=1,  # This should be the upper limit of your x-axis
+            y0=0.0,
+            y1=1,
+            fillcolor="LightSkyBlue",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+    ],
+        )
+        
+    
+    x_max = max(df_nonbest["x"].max(), df_best["x"].max())
+
+
+    fig.add_annotation(
+        x=0,
+        y=1.11,
+        xref="paper",
+        yref="paper",
+        text=study.study_name,
+        font=dict(size=14),
+        showarrow=False,
+    )
+        #import plotly.io as pio
+
+    #dpi = 900  # Set the desired resolution (dots per inch)
+    #output_filename = f"pareto_{'study_name'}.png"
+    #pio.write_image(fig, output_filename, format="png", scale=dpi / 96)
+
+    # Show the plot
+    return fig#.show()
