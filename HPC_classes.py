@@ -4,7 +4,10 @@ from pyspark.sql.types import FloatType
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, when, regexp_replace
+import warnings
 
+# Simple way to ignore all warnings
+warnings.filterwarnings("ignore")
 def drop_columns_containing_word(df, word, exception=None):
     """
     Drop columns from a PySpark DataFrame if their names contain a specific word, 
@@ -137,7 +140,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
-CPUS_PER_JOB : int = 5
+CPUS_PER_JOB : int = 8
 
 import numpy as np
 import pandas as pd
@@ -656,7 +659,7 @@ def make_pareto_plot(study: optuna.study.study.Study):
                 title=dict(
                     text=f"{study.study_name} (Shapley)", font=dict(size=axis_label_font_size)
                 ),
-                range=[-0.01, 1],  # Here is the modification
+                range=[-0.02, 2],  # Here is the modification
             ),
             font=dict(size=18),
             # plot_bgcolor='white',
